@@ -12,17 +12,23 @@ knitr::opts_chunk$set(echo = TRUE)
 ## R Markdown
 
 ```{r}
-install.packages("here")
 
 library(tidyverse)
 library(xray)
 library(readr)
 library(readxl)
 library(here)
+library(janitor)
 ```
 
 
 ## Data
+
+Cleaning:
+
+1. There was one initial error in the dataset in the 'Accept Date' column. The column was incorrectly formatted as numeric and needed to be adjusted by adding to the Excel Origin 1899-12-30.
+
+2. In offered_aid_amount, NA's need to be converted to $0
 
 ```{r warning=FALSE}
 #find local files
@@ -33,15 +39,97 @@ local_files <- local_files[grepl(pattern = ".xlsx$", x = local_files)]
 
 # read in to dat
 dat <- readxl::read_xlsx(here(local_files))
-```
 
+dat <- janitor::clean_names(dat)
+```
 
 
 ```{r}
+# clean accept_date column, numeric values are days added to the Excel origin
+dat <- dat %>% 
+  mutate(accept_date = as.Date(accept_date, origin = "1899-12-30"))
+
+# convert all NA's in offered aid to $0
+dat <- dat %>% 
+  mutate(offered_aid_amount = round( ifelse(is.na(offered_aid_amount), 0, offered_aid_amount), 0))
+
 head(dat)
-
-
 ```
 
 
 
+```{r warning=FALSE}
+
+
+xray::distributions(dat)
+```
+
+
+
+
+
+
+
+
+
+## Time Exploration
+
+What is the average length of time between a student's admit date and the date they accept their admission?
+
+Data issues: There are some student for whom the reported date for accepting their offer came before their reported date of admission.  Need: investigate admission data process.
+
+```{r}
+# create column with calculated days elapsed between admit and accept
+dat <- dat %>% 
+  mutate(accept_time_elapsed = as.numeric(accept_date - as.Date(admit_date)))
+
+dat %>% 
+  group_by(residency, ipeds_ethnicity) %>% 
+  summarize(avg_accept_time = mean(accept_time_elapsed, na.rm = T))
+```
+
+
+hypothesis:  Increasing Financial Aid will cause students to accept their NAU offer sooner.
+
+Result: A statistically significant result showing the opposite trend, higher aid offers actually cause an increase in time from admission to acceptance. Student with no aid offer accepted in 68 days on avg, while each $1000 of aid awarded resulted in an extra 3 days of time between admission and acceptance.
+
+```{r}
+
+lm_aid_accept_time <- lm(formula = dat$accept_time_elapsed ~ dat$offered_aid_amount,
+                         data = dat,
+                         subset = !is.na(dat$accept_date))
+
+summary(lm_aid_accept_time)
+```
+
+
+```{r}
+lm_aid_accept_time$coefficients[2] * 1000
+```
+
+
+```{r}
+dat_accepted <- dat[ !is.na(dat$accept_date), ]
+
+plot(x = dat_accepted$accept_time_elapsed, y = dat_accepted$offered_aid_amount)
+```
+
+
+Explore data where accept date was before admit date (impossible).
+
+Possible explanations: 1.  Students were admitted at an earlier date and accepted, but then re-applied.
+```{r}
+dat %>% 
+  filter(accept_time_elapsed <= 0)
+```
+
+
+
+
+
+
+
+Research Questions:
+
+1. does increased fin aid increase acceptance? Decrease time from admit to accept?
+2. What does the admit to accept funnel look like for residents vs. non-residents?

@@ -1,0 +1,6 @@
+"0","dat %>% 
+  group_by(residency, ipeds_ethnicity) %>% 
+  summarize(avg_accept_time = mean(accept_time_elapsed, na.rm = T))
+"
+"1","[38;5;255m`summarise()` has grouped output by 'residency'. You can override using the `.groups` argument.[39m
+"

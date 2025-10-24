@@ -3,7 +3,7 @@
     "path": "H:/Data Projects/bia_sr_sem_presentation/data_exploration.Rmd",
     "project_path": "data_exploration.Rmd",
     "type": "r_markdown",
-    "hash": "1633627520",
+    "hash": "4102476010",
     "contents": "",
     "dirty": false,
     "created": 1761326776394.0,
@@ -13,16 +13,16 @@
         "tempName": "Untitled1",
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "42,0",
-        "scrollLine": "36",
-        "last_setup_crc32": "70382359bb338d19"
+        "cursorPosition": "93,309",
+        "scrollLine": "89",
+        "last_setup_crc32": "61ada9c9bb338d19"
     },
     "folds": "",
-    "lastKnownWriteTime": 1761327607,
+    "lastKnownWriteTime": 1761340037,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1761327609424,
+    "last_content_update": 1761340038134,
     "read_only": false,
     "read_only_alternatives": []
 }

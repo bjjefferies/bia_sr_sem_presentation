@@ -1,8 +1,0 @@
-"0","#find local files"
-"0","local_files <- list.files(path = here())"
-"0",""
-"0","# restrict list of local files to those ending in .xlsx"
-"0","local_files <- local_files[grepl(pattern = "".xlsx$"", x = local_files)]"
-"0",""
-"0","# read in to dat"
-"0","dat <- readxl::read_xlsx(here(local_files))"
