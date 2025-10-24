@@ -1,0 +1,47 @@
+---
+title: "data_exploration"
+author: "Ben Jefferies"
+date: "2025-10-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+install.packages("here")
+
+library(tidyverse)
+library(xray)
+library(readr)
+library(readxl)
+library(here)
+```
+
+
+## Data
+
+```{r warning=FALSE}
+#find local files
+local_files <- list.files(path = here())
+
+# restrict list of local files to those ending in .xlsx
+local_files <- local_files[grepl(pattern = ".xlsx$", x = local_files)]
+
+# read in to dat
+dat <- readxl::read_xlsx(here(local_files))
+```
+
+
+
+```{r}
+head(dat)
+
+
+```
+
+
+
