@@ -1,3 +1,0 @@
-"0","dat_accepted <- dat[ !is.na(dat$accept_date), ]"
-"0",""
-"0","plot(x = dat_accepted$accept_time_elapsed, y = dat_accepted$offered_aid_amount)"

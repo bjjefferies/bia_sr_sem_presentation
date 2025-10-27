@@ -1,0 +1,347 @@
+---
+title: "data_exploration"
+author: "Ben Jefferies"
+date: "2025-10-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+library(tidyverse)
+library(xray)
+library(readr)
+library(readxl)
+library(here)
+library(janitor)
+```
+
+# Summary
+
+current public views of higher ed along with a shrinking population of potential first year traditional college students requires us to think creatively about methods to increase and stablize enrollment at NAU.
+
+Strat goal: broaden access to create a student population that reflects the state, complements out-of-state and international enrollment.  Increase statewide/online enrollment. Improve retention rates.
+
+Strat goal: support enrollment and retention for Indigenous students.
+
+
+
+
+
+## Data
+
+Cleaning:
+
+1. There was one initial error in the dataset in the 'Accept Date' column. The column was incorrectly formatted as numeric and needed to be adjusted by adding to the Excel Origin 1899-12-30.
+
+2. In offered_aid_amount, NA's need to be converted to $0
+
+```{r warning=FALSE}
+#find local files
+local_files <- list.files(path = here())
+
+# restrict list of local files to those ending in .xlsx
+local_files <- local_files[grepl(pattern = ".xlsx$", x = local_files)]
+
+# read in to dat
+dat <- readxl::read_xlsx(here(local_files))
+
+dat <- janitor::clean_names(dat)
+```
+
+
+```{r}
+# clean accept_date column, numeric values are days added to the Excel origin
+dat <- dat %>% 
+  mutate(accept_date = as.Date(accept_date, origin = "1899-12-30"))
+
+# convert all NA's in offered aid to $0
+dat <- dat %>% 
+  mutate(offered_aid_amount = round( ifelse(is.na(offered_aid_amount), 0, offered_aid_amount), 0))
+
+# convert ethnicity, household income field to factor
+dat <- dat %>% 
+  mutate(ipeds_ethnicity = factor(ipeds_ethnicity),
+         household_income = factor(household_income,
+                                   levels = c(">= $150,000", "$125,000 - $149,999", ">= $120,000", "$100,000 - $124,999", "$80,000 - $119,999", "$75,000 - $99,999", "$65,000 - $79,999", "$50,000 - $74,999", "$50,000 - $64,999", "$35,000 - $49,999", "$25,000 - $49,999", "$20,000 - $34,999", "< $25,000", "< $20,000", NA)))
+
+```
+
+
+
+```{r warning=FALSE}
+
+
+xray::distributions(dat)
+```
+
+
+
+## KPI Descriptive Stats
+
+Overall apply - admit - accept - retain funnel
+
+Summary: of those admitted, 1/4 accept and of those 80% enrolled in the following Fall. Of those who enrolled, 73% were retained after their first year.
+
+TO DO: 
+
+1. pull IPEDS national data for past year on average retention rates for comparable southwestern publics of similar size.
+2. pull statistics on Arizona population distribution (to test for effective representation)   https://datausa.io/profile/geo/arizona#demographics
+3. Create this funnel chart in powerbi
+
+```{r}
+dat %>% 
+  summarise(total_admit = sum(admit, na.rm = T),
+            total_accept = sum(accept, na.rm = T),
+            total_enroll = sum(enroll, na.rm = T),
+            total_retain = sum(retain, na.rm = T))
+```
+
+
+Split by Gender, we can see twice as many women applied as men.
+
+```{r}
+dat %>% 
+  group_by(gender) %>% 
+  summarise(total_admit = sum(admit, na.rm = T),
+            total_accept = sum(accept, na.rm = T),
+            pct_accept = round( sum(accept, na.rm = T) / sum(admit, na.rm = T), 2),
+            total_enroll = sum(enroll, na.rm = T),
+            pct_enroll = round( sum(enroll, na.rm = T) / sum(accept, na.rm = T), 2),
+            total_retain = sum(retain, na.rm = T),
+            pct_retain = round( sum(retain, na.rm = T) / sum(enroll, na.rm = T), 2))
+```
+
+
+
+Split by Ethnicity
+
+```{r}
+dat %>% 
+  group_by(ipeds_ethnicity) %>% 
+  summarise(total_admit = sum(admit, na.rm = T),
+            total_accept = sum(accept, na.rm = T),
+            pct_accept = round( sum(accept, na.rm = T) / sum(admit, na.rm = T), 2),
+            total_enroll = sum(enroll, na.rm = T),
+            pct_enroll = round( sum(enroll, na.rm = T) / sum(accept, na.rm = T), 2),
+            total_retain = sum(retain, na.rm = T),
+            pct_retain = round( sum(retain, na.rm = T) / sum(enroll, na.rm = T), 2))
+```
+
+
+
+Split by First Gen 
+
+```{r}
+dat %>% 
+  group_by(ist_generation_student) %>% 
+  summarise(total_admit = sum(admit, na.rm = T),
+            total_accept = sum(accept, na.rm = T),
+            pct_accept = round( sum(accept, na.rm = T) / sum(admit, na.rm = T), 2),
+            total_enroll = sum(enroll, na.rm = T),
+            pct_enroll = round( sum(enroll, na.rm = T) / sum(accept, na.rm = T), 2),
+            total_retain = sum(retain, na.rm = T),
+            pct_retain = round( sum(retain, na.rm = T) / sum(enroll, na.rm = T), 2))
+```
+
+
+
+### Ethnic breakdown of cohort
+
+Question: Does the cohort in this dataset have an ethnic distribution matching AZ state?
+are the students in this recruitment cycle demographically representative of the State of AZ?
+
+Results: This cohort has an over-representation of white students and Indigenous and Hispanic students are under-represented.
+
+NAU is admitting a representative number of hispanic and black students, while under-addmittin
+
+Look at two specific sub-groups of students that are particularly important to NAU's strategic mission.
+1. Indigenous students - AZ's population of indigenous people as of 2023 was 3.4%. Only 1.6% of the admitted students were indigenous. Those student accepted their offers at NAU at a quite high rate, bringing the indigenous total of accepted offers to 2.4%. T
+
+Visualize: line chart comparing white, hispanic and indigenous with percentages of student body.  x-axis is (admit, accept, enroll, retain) y axis is percentage of cohort
+
+Investigate: what factors are correlated with increasing the probability of accept, enroll, retain for each ethnic group.
+
+
+```{r}
+dat %>% 
+  group_by(ipeds_ethnicity) %>% 
+  summarize(admit = sum(admit, na.rm = T),
+            accept = sum(accept, na.rm = T)) %>% 
+  mutate(pct_admit = round( admit / sum(admit), 4),
+         pct_accept = round( accept / sum(accept), 4)) %>% 
+  select(ipeds_ethnicity, admit, pct_admit, accept, pct_accept)
+```
+
+
+
+
+
+
+```{r}
+dat %>% 
+  group_by(ipeds_ethnicity) %>% 
+  summarize(enroll = sum(enroll, na.rm = T),
+            retain = sum(retain, na.rm = T)) %>% 
+  mutate(pct_enroll = round( enroll / sum(enroll), 4),
+         pct_retain = round( retain / sum(retain), 4)) %>% 
+  select(ipeds_ethnicity, enroll, pct_enroll, retain, pct_retain)
+```
+
+
+
+
+### Family Income
+
+Students from the highest family income band (>$150,000) enroll at the highest rates, while rates fall for all lower income bands.
+
+Question: Who are those students, resident or non?
+
+```{r}
+dat %>% 
+  group_by(household_income) %>% 
+  summarize(enroll = sum(enroll, na.rm = T),
+            retain = sum(retain, na.rm = T)) %>% 
+  mutate(pct_enroll = round( enroll / sum(enroll), 4),
+         pct_retain = round( retain / sum(retain), 4)) %>% 
+  select(household_income, enroll, pct_enroll, retain, pct_retain)
+```
+
+
+
+
+
+
+
+
+
+### Modelling Acceptance
+
+Methodology: logistic regression
+
+Results: highly statistically significant result that shows additional $1000 in offered aid increases the likelihood of a student accepting their offer by 4%. So a student with a \$10000 aid package is 40% more likely to accept their offer than a comparable student with no offered aid. This result applies regardless of ethnicity, there was no statistically significant difference in the effect of financial aid offers between ethnic groups.
+
+
+```{r}
+# explore contributing factors to acceptance with logistic regression
+m_log_accept <- glm(accept ~ offered_aid_amount,
+                    data = dat,
+                    family = binomial) 
+
+summary(m_log_accept)
+```
+
+```{r}
+# convert log-odds to odds-ratio
+oddsRatio <- exp(m_log_accept$coefficients[2])
+
+# convert odds ratio to units per $1000 of financial aid
+oddsRatio <- oddsRatio^1000
+
+# 
+```
+
+
+
+
+
+```{r}
+# logistic regression model controlling for ethnicity
+m_log_accept_controls <- glm(accept ~ offered_aid_amount * ipeds_ethnicity,
+                    data = dat,
+                    family = binomial)
+
+summary(m_log_accept_controls)
+
+```
+
+```{r}
+# Indigenous is the reference group, so add the intercept to the coefficient for offered aid
+log_odds_indig <- m_log_accept_controls$coefficients[2] + m_log_accept_controls$coefficients[1]
+
+odds_ratio_indig <- exp(log_odds_indig)
+
+odds_ratio_indig <- odds_ratio_indig^1000
+
+```
+
+
+```{r}
+unique(dat$ipeds_ethnicity)
+```
+
+
+
+
+
+
+
+
+
+
+## Time and Offer Acceptance Exploration
+
+What is the average length of time between a student's admit date and the date they accept their admission?
+
+Data issues: There are some student for whom the reported date for accepting their offer came before their reported date of admission.  Need: investigate admission data process.
+
+```{r}
+# create column with calculated days elapsed between admit and accept
+dat <- dat %>% 
+  mutate(accept_time_elapsed = as.numeric(accept_date - as.Date(admit_date)))
+
+dat %>% 
+  group_by(residency, ipeds_ethnicity) %>% 
+  summarize(avg_accept_time = mean(accept_time_elapsed, na.rm = T))
+```
+
+
+hypothesis:  Increasing Financial Aid will cause students to accept their NAU offer sooner.
+
+Result: A statistically significant result showing the opposite trend, higher aid offers actually cause an increase in time from admission to acceptance. Student with no aid offer accepted in 68 days on avg, while each $1000 of aid awarded resulted in an extra 3 days of time between admission and acceptance.
+
+```{r}
+
+lm_aid_accept_time <- lm(formula = dat$accept_time_elapsed ~ dat$offered_aid_amount,
+                         data = dat,
+                         subset = !is.na(dat$accept_date))
+
+summary(lm_aid_accept_time)
+```
+
+
+```{r}
+lm_aid_accept_time$coefficients[2] * 1000
+```
+
+
+
+
+Explore data where accept date was before admit date (impossible).
+
+Possible explanations: 1.  Students were admitted at an earlier date and accepted, but then re-applied.
+```{r}
+dat %>% 
+  filter(accept_time_elapsed <= 0)
+```
+
+
+
+
+
+
+
+# Research Questions:
+
+1. does increased fin aid increase acceptance? Decrease time from admit to accept?
+2. Does fin aid increase prob of acceptance? - yes
+3. Does fin aid increase 1 year retention rate?  (should discuss retention as key strat given enrollment cliff)
+4. What does the admit to accept funnel look like for residents vs. non-residents?
+5. are admit rates reflective of NAU's institutional goals?
+6. How does household income impact admit, accept and retention rates?
+7. How many more students would be admitted if we were to lower admit threshold by .25 HS GPA
+8. Which colleges have the highest and lowest student retention rates?
