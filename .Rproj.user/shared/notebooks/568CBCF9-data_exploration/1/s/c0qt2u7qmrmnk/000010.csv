@@ -1,7 +1,0 @@
-"0","dat %>% "
-"0","  group_by(household_income) %>% "
-"0","  summarize(enroll = sum(enroll, na.rm = T),"
-"0","            retain = sum(retain, na.rm = T)) %>% "
-"0","  mutate(pct_enroll = round( enroll / sum(enroll), 4),"
-"0","         pct_retain = round( retain / sum(retain), 4)) %>% "
-"0","  select(household_income, enroll, pct_enroll, retain, pct_retain)"

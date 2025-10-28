@@ -11,18 +11,19 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## R Markdown
 
-```{r}
+```{r warning=FALSE}
 library(tidyverse)
 library(xray)
 library(readr)
 library(readxl)
 library(here)
 library(janitor)
+library(gtsummary)
 ```
 
 # Summary
 
-current public views of higher ed along with a shrinking population of potential first year traditional college students requires us to think creatively about methods to increase and stablize enrollment at NAU.
+current public views of higher ed along with a shrinking population of potential first year traditional college students requires us to think creatively about methods to increase and stabilize enrollment at NAU.
 
 Strat goal: broaden access to create a student population that reflects the state, complements out-of-state and international enrollment.  Increase statewide/online enrollment. Improve retention rates.
 
@@ -69,13 +70,22 @@ dat <- dat %>%
          household_income = factor(household_income,
                                    levels = c(">= $150,000", "$125,000 - $149,999", ">= $120,000", "$100,000 - $124,999", "$80,000 - $119,999", "$75,000 - $99,999", "$65,000 - $79,999", "$50,000 - $74,999", "$50,000 - $64,999", "$35,000 - $49,999", "$25,000 - $49,999", "$20,000 - $34,999", "< $25,000", "< $20,000", NA)))
 
+# create dummy variable for received aid
+dat <- dat %>% 
+  mutate(aid_offered = ifelse(offered_aid_amount > 0, 1, 0))
+
 ```
 
 
 
+
+
+
+
+
+
+
 ```{r warning=FALSE}
-
-
 xray::distributions(dat)
 ```
 
@@ -193,6 +203,66 @@ dat %>%
 ```
 
 
+```{r fig.width=7, fig.height=5}
+# create data frame for visualization rates over time
+funnel_ipeds <- dat %>% 
+  group_by(ipeds_ethnicity) %>% 
+  summarize(admit = sum(admit, na.rm = T),
+            accept = sum(accept, na.rm = T),
+            enroll = sum(enroll, na.rm = T),
+            retain = sum(retain, na.rm = T)) %>% 
+  mutate(pct_admit = round( admit / sum(admit), 4),
+         pct_accept = round( accept / sum(accept), 4),
+         pct_enroll = round( enroll / sum(enroll), 4),
+         pct_retain = round( retain / sum(retain), 4))
+
+
+# pivot summary data by ethnicity longer
+funnel_ipeds_long <- funnel_ipeds %>% 
+  pivot_longer(cols = c(admit, accept, enroll, retain),
+                names_to = "funnel_stage",
+               values_to = "total")
+
+# finish pivot, assigning percent to each row
+funnel_ipeds_long <- funnel_ipeds_long %>% 
+  mutate(pct = case_when(funnel_stage == "admit" ~ pct_admit,
+                         funnel_stage == "accept" ~ pct_accept,
+                         funnel_stage == "enroll" ~ pct_enroll,
+                         funnel_stage == "retain" ~ pct_retain)) %>% 
+  select(ipeds_ethnicity, funnel_stage, total, pct)
+
+
+funnel_ipeds_long$funnel_stage <- factor(funnel_ipeds_long$funnel_stage,
+                                         levels = c("admit", "accept", "enroll", "retain"))
+  
+funnel_ipeds_long <- funnel_ipeds_long %>% 
+  mutate(index = case_when(funnel_stage == "admit" ~ 1,
+                           funnel_stage == "accept" ~ 2,
+                           funnel_stage == "enroll" ~ 3,
+                           funnel_stage == "retain" ~ 4,))
+
+nau_colors <- c("#003466", "#F1B300", "#00853F", "#F47722", "#00ADB5", "#E86D1F")
+
+funnel_ipeds_long %>% 
+  filter(ipeds_ethnicity %in% c("American Indian/Alaska Native",
+                                "Hispanic/Latino")) %>% 
+  ggplot(aes(x = index, y = pct, colour = ipeds_ethnicity)) +
+  geom_point() +
+  geom_path(lwd = 1) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(labels = c("admitted", "accepted", "enrolled", "retained")) +
+  scale_color_manual(values = nau_colors) +
+  labs(y = "Percent of Fall Cohort",
+       x = "Funnel Stage") +
+  theme_minimal() +
+  theme(legend.title = element_blank(),
+        legend.position = "bottom",
+        legend.text = element_text(size = 11),
+        axis.text.x = element_text(size = 11))
+
+```
+
+
 
 
 ### Family Income
@@ -202,6 +272,7 @@ Students from the highest family income band (>$150,000) enroll at the highest r
 Question: Who are those students, resident or non?
 
 ```{r}
+# summarize enroll and retain rates by household income band
 dat %>% 
   group_by(household_income) %>% 
   summarize(enroll = sum(enroll, na.rm = T),
@@ -212,6 +283,17 @@ dat %>%
 ```
 
 
+```{r}
+# 
+dat %>% 
+  group_by(residency, household_income) %>% 
+  summarize(enroll = sum(enroll, na.rm = T),
+            retain = sum(retain, na.rm = T)) %>% 
+  mutate(pct_enroll = round( enroll / sum(enroll), 4),
+         pct_retain = round( retain / sum(retain), 4)) %>% 
+  select(household_income, enroll, pct_enroll, retain, pct_retain)
+
+```
 
 
 
@@ -219,7 +301,7 @@ dat %>%
 
 
 
-### Modelling Acceptance
+### Modelling Acceptance Logistic
 
 Methodology: logistic regression
 
@@ -235,6 +317,9 @@ m_log_accept <- glm(accept ~ offered_aid_amount,
 summary(m_log_accept)
 ```
 
+
+
+
 ```{r}
 # convert log-odds to odds-ratio
 oddsRatio <- exp(m_log_accept$coefficients[2])
@@ -248,6 +333,8 @@ oddsRatio <- oddsRatio^1000
 
 
 
+
+In the logit model with interaction terms below, we see results are statistically the same for all ethnic groups, no statistically significant difference exists.
 
 ```{r}
 # logistic regression model controlling for ethnicity
@@ -321,13 +408,7 @@ lm_aid_accept_time$coefficients[2] * 1000
 
 
 
-Explore data where accept date was before admit date (impossible).
 
-Possible explanations: 1.  Students were admitted at an earlier date and accepted, but then re-applied.
-```{r}
-dat %>% 
-  filter(accept_time_elapsed <= 0)
-```
 
 
 
@@ -345,3 +426,45 @@ dat %>%
 6. How does household income impact admit, accept and retention rates?
 7. How many more students would be admitted if we were to lower admit threshold by .25 HS GPA
 8. Which colleges have the highest and lowest student retention rates?
+9. Does high school GPA predict retention?
+10. What are the top demographic groups at risk of non-retention?
+11. What are the top demographic groups that accept but do not end up enrolling?
+12. Is financial aid distributed equitably?
+
+
+
+
+
+
+
+
+
+
+## Financial Aid Stats
+
+Average Aid package: $10,955
+Percent of student receiving aid: 78%
+Students with aid accepting: 26%     vs. 17% without aid
+Students with aid enrolling: 21.7%     vs. 11.6% without aid
+
+For breakdown of distribution by ethnicity, look at PowerBI.
+
+```{r}
+# what is the average financial aid package?
+mean(dat$offered_aid_amount[dat$offered_aid_amount > 0], na.rm = T)
+  
+# what percent of students received aid?
+dat %>% 
+  summarise(pct_offered_aid = sum(offered_aid_amount > 0) / nrow(dat))
+
+# what percent of students receiving aid accept and then enroll and then retain?
+dat %>% 
+  group_by(aid_offered) %>% 
+  summarise(pct_accept = sum(accept) / n(),
+            pct_enroll = sum(enroll, na.rm = T) / n(),
+            pct_retain = sum(retain, na.rm = T) / n())
+```
+
+
+
+
