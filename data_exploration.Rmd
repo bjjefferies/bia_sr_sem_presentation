@@ -384,6 +384,8 @@ dat <- dat %>%
 dat %>% 
   group_by(residency, ipeds_ethnicity) %>% 
   summarize(avg_accept_time = mean(accept_time_elapsed, na.rm = T))
+
+mean(dat$accept_time_elapsed, na.rm = T)
 ```
 
 
