@@ -363,6 +363,35 @@ unique(dat$ipeds_ethnicity)
 
 
 
+### Modelling Enrollment Logistic
+
+Data issues: Enroll is 1 or 0 only if the student accepted their offer to NAU. otherwise, the data shows NA since a student could not have enrolled if they hadn't accepted their offer.
+
+Results: Statistically significant result, an increase of GPA by 1 full point nearly doubles the odds that they student ends up enrolling at NAU, even when controlling for the amount of aid offered to the student.
+
+```{r}
+dat_enroll_logit <- dat %>% 
+  mutate(enroll = ifelse(enroll == 1, 1, 0))
+
+m_log_enroll <- glm(enroll ~ hs_gpa + offered_aid_amount,
+                    data = dat_enroll_logit,
+                    family = binomial)
+
+summary(m_log_enroll)
+
+exp(m_log_enroll$coefficients[3])
+```
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -468,5 +497,25 @@ dat %>%
 ```
 
 
+
+```{r}
+dat %>% 
+  filter(enroll == 1) %>% 
+  group_by(campus) %>% 
+  summarise(n = n())
+```
+
+
+
+
+
+
+
+
+## Effects of GPA
+
+Does high school GPA impact accept/enroll/retain?  Yes (PowerBI), student with higher GPA's are more likely to enroll after accepting their offer and are also more likely to retain after 1 year. 
+
+Is there a story to be told there?
 
 
