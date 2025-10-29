@@ -19,6 +19,7 @@ library(readxl)
 library(here)
 library(janitor)
 library(gtsummary)
+library(margins)
 ```
 
 # Summary
@@ -319,6 +320,13 @@ summary(m_log_accept)
 
 
 
+```{r}
+me_m_log_accept <- margins::margins(m_log_accept)
+
+summary(me_m_log_accept)
+```
+
+
 
 ```{r}
 # convert log-odds to odds-ratio
@@ -326,8 +334,6 @@ oddsRatio <- exp(m_log_accept$coefficients[2])
 
 # convert odds ratio to units per $1000 of financial aid
 oddsRatio <- oddsRatio^1000
-
-# 
 ```
 
 
@@ -347,6 +353,18 @@ summary(m_log_accept_controls)
 ```
 
 ```{r}
+# marginal effects for accept/control model
+me_m_log_accept_c <- margins::margins(m_log_accept_controls)
+
+summary(me_m_log_accept_c)
+
+#
+9.767533e-06*5000
+```
+
+
+
+```{r}
 # Indigenous is the reference group, so add the intercept to the coefficient for offered aid
 log_odds_indig <- m_log_accept_controls$coefficients[2] + m_log_accept_controls$coefficients[1]
 
@@ -357,9 +375,12 @@ odds_ratio_indig <- odds_ratio_indig^1000
 ```
 
 
-```{r}
-unique(dat$ipeds_ethnicity)
-```
+
+
+
+
+
+
 
 
 
@@ -370,18 +391,120 @@ Data issues: Enroll is 1 or 0 only if the student accepted their offer to NAU. o
 Results: Statistically significant result, an increase of GPA by 1 full point nearly doubles the odds that they student ends up enrolling at NAU, even when controlling for the amount of aid offered to the student.
 
 ```{r}
+# In thsi full model we are predicting the likelihood of enrollment from the stage of admit.
+
+# Replace NA's in enroll column with 0
 dat_enroll_logit <- dat %>% 
   mutate(enroll = ifelse(enroll == 1, 1, 0))
 
+# run logistic regression model
 m_log_enroll <- glm(enroll ~ hs_gpa + offered_aid_amount,
                     data = dat_enroll_logit,
                     family = binomial)
 
 summary(m_log_enroll)
 
-exp(m_log_enroll$coefficients[3])
+# odds-ratio of increasing financial aid $1000 - 2.4% increase in odds that a person enrolls
+exp(m_log_enroll$coefficients[3]) ^1000
+
+# odds-ratio of increasing GPA by 1 pt. - odds double that the student enrolls
+exp(m_log_enroll$coefficients[2])
 ```
 
+
+
+#### Accept to Enroll Factors
+
+In this section I model factors that contribute to enrollment after a student has accepted their offer at NAU
+
+```{r}
+# dataset restriction to only those students who accepted
+dat_accepted <- dat %>% 
+  filter(accept == 1)
+
+# model on effect of hs_gpa and offered aid 
+# Results: Exactly the same as the full dataset model!
+m_log_enroll_1 <- glm(enroll ~ hs_gpa + offered_aid_amount,
+                    data = dat_accepted,
+                    family = binomial)
+
+summary(m_log_enroll_1)
+
+
+```
+
+
+Results: Two statistically significant outcomes. For students students with similar GPA and offered aid amount, and Indigenous student would have about 50% lower odds of enrolling, while a white student would have about 56% higher odds of enrolling.
+
+```{r}
+# model ethnicity effect on enroll
+m_log_enroll_2 <- glm(enroll ~ hs_gpa + offered_aid_amount + ipeds_ethnicity,
+                    data = dat_accepted,
+                    family = binomial)
+
+summary(m_log_enroll_2)
+
+exp(m_log_enroll_2$coefficients)
+```
+
+
+Explore Enrollment by ipeds ethnicity
+
+```{r}
+# model ethnicity effect on enroll
+m_log_enroll_3 <- glm(enroll ~ ipeds_ethnicity,
+                    data = dat_accepted,
+                    family = binomial)
+
+summary(m_log_enroll_3)
+```
+
+
+Explore financial aid and household income
+
+The story here is pretty clear, higher income households are simply more likely to enroll. The marginal effects results below show us that for every category of income below our highest level (>150,000), the probability of a student enrolling decreases between 3 and 15%.
+
+
+```{r}
+# Model financial aid and household income effects on enrollments
+m_log_enroll_4 <- glm(enroll ~ offered_aid_amount + household_income,
+                    data = dat_accepted,
+                    family = binomial)
+
+summary(m_log_enroll_4)
+```
+
+
+
+```{r}
+me_m_log_4 <- margins::margins(m_log_enroll_4)
+
+9.04066e-06*5000  
+  
+summary(me_m_log_4)
+
+```
+
+
+
+
+
+Explore Interactions between financial aid offers and household income levels on enrollment.
+
+Essentially, even if we account for the amount of aid we offer students at lower income brackets, financial aid simply doesn't outweigh the impact of their family income.
+
+```{r}
+# logit model with interaction between offered aid amount and household income
+m_log_enroll_5 <- glm(enroll ~ offered_aid_amount * household_income,
+                    data = dat_accepted,
+                    family = binomial)
+
+summary(m_log_enroll_5)
+
+me_m_log_enroll_5 <- margins::margins(m_log_enroll_5)
+
+summary(me_m_log_enroll_5)
+```
 
 
 
@@ -477,6 +600,7 @@ Average Aid package: $10,955
 Percent of student receiving aid: 78%
 Students with aid accepting: 26%     vs. 17% without aid
 Students with aid enrolling: 21.7%     vs. 11.6% without aid
+Aid quartiles: 0 - 6405, 6406 - 9349, 9350 - 12295, 12296 - 23810 
 
 For breakdown of distribution by ethnicity, look at PowerBI.
 
@@ -494,6 +618,12 @@ dat %>%
   summarise(pct_accept = sum(accept) / n(),
             pct_enroll = sum(enroll, na.rm = T) / n(),
             pct_retain = sum(retain, na.rm = T) / n())
+
+# What are values of quartiles of financial aid offers
+quantile(dat$offered_aid_amount,
+         probs = c(0,0.25,0.5,0.75))
+
+max(dat$offered_aid_amount)
 ```
 
 
