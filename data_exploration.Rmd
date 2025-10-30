@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Library
 
 ```{r warning=FALSE}
 library(tidyverse)
@@ -20,6 +20,7 @@ library(here)
 library(janitor)
 library(gtsummary)
 library(margins)
+library(pander)
 ```
 
 # Summary
@@ -262,6 +263,26 @@ funnel_ipeds_long %>%
         axis.text.x = element_text(size = 11))
 
 ```
+
+
+
+#### Hispanic/Native Male/Female
+
+
+```{r}
+dat %>% 
+  filter(ipeds_ethnicity %in% c("Hispanic/Latino", "American Indian/Alaska Native")) %>% 
+  group_by(ipeds_ethnicity, gender) %>% 
+  summarise(pct_accept = sum(accept, na.rm = T) / sum(admit, na.rm = T),
+            pct_enroll = sum(enroll, na.rm = T) / sum(accept, na.rm = T),
+            pct_retain = sum(retain, na.rm = T) / sum(enroll, na.rm = T)) %>% 
+  pander()
+```
+
+
+
+
+
 
 
 
@@ -636,6 +657,12 @@ dat %>%
 ```
 
 
+```{r}
+#AVERAGE AID OFFER BY Household Income
+dat %>% 
+  group_by(household_income) %>% 
+  summarise(avg_aid_offer = sum(offered_aid_amount, na.rm = T) / sum(admit, na.rm = T))
+```
 
 
 
