@@ -676,3 +676,47 @@ Does high school GPA impact accept/enroll/retain?  Yes (PowerBI), student with h
 Is there a story to be told there?
 
 
+
+
+```{r}
+m_log_enroll_6 <- glm(enroll ~ hs_gpa + offered_aid_amount,
+                    data = dat_accepted,
+                    family = binomial)
+
+summary(m_log_enroll_6)
+
+me_m_log_enroll_6 <- margins::margins(m_log_enroll_6)
+
+summary(me_m_log_enroll_6) %>% pander(caption = "Enrollment as function of HS GPA and Offered Aid")
+```
+
+
+
+```{r}
+# filter dataset to only students who have enrolled
+dat_enrolled <- dat %>% 
+  filter(enroll == 1)
+
+#logit model analyzing effect of HS GPA on retention
+m_log_retain_1 <- glm(retain ~ hs_gpa + offered_aid_amount,
+                    data = dat_enrolled,
+                    family = binomial)
+
+summary(m_log_retain_1)
+
+me_m_log_retain_1 <- margins::margins(m_log_retain_1)
+
+summary(me_m_log_retain_1) %>% pander(caption = "Retention as Function of GPA and offered Aid")
+```
+
+
+```{r}
+#logit model analyzing effect of HS GPA on retention
+m_log_accept_gpa <- glm(accept ~ hs_gpa + offered_aid_amount,
+                    data = dat,
+                    family = binomial)
+
+summary(m_log_accept_gpa)
+
+```
+
